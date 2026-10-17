@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -12,7 +13,10 @@ import (
 	lipgloss "github.com/charmbracelet/lipgloss"
 )
 
-const testSeconds = 30
+const (
+	maxTextWidth = 60
+	visibleLines = 3
+)
 
 var (
 	correctStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
@@ -34,16 +38,20 @@ func tick(gen int) tea.Cmd {
 
 type model struct {
 	session   *typing.Session
+	seconds   int
 	remaining int
 	finished  bool
 	gen       int
+	width     int
 }
 
-func newModel(gen int) model {
+func newModel(gen, seconds, width int) model {
 	return model{
-		session:   typing.NewSession(words.Random(15)),
-		remaining: testSeconds,
+		session:   typing.NewSession(words.Random(seconds * 3)),
+		seconds:   seconds,
+		remaining: seconds,
 		gen:       gen,
+		width:     width,
 	}
 }
 
@@ -51,12 +59,14 @@ func (m model) Init() tea.Cmd { return nil }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEsc, tea.KeyCtrlC:
 			return m, tea.Quit
 		case tea.KeyTab:
-			return newModel(m.gen + 1), nil
+			return newModel(m.gen+1, m.seconds, m.width), nil
 		}
 		if m.finished {
 			return m, nil
@@ -98,32 +108,73 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m model) renderChar(i int) string {
+	s := string(m.session.Char(i))
+	switch m.session.State(i) {
+	case typing.Correct:
+		return correctStyle.Render(s)
+	case typing.Incorrect:
+		return wrongStyle.Render(s)
+	}
+	if i == m.session.Cursor() {
+		return cursorStyle.Render(s)
+	}
+	return pendingStyle.Render(s)
+}
+
+func (m model) textView() string {
+	width := m.width - 4
+	if width > maxTextWidth {
+		width = maxTextWidth
+	}
+	if width < 10 {
+		width = 10
+	}
+
+	runes := make([]rune, m.session.Len())
+	for i := range runes {
+		runes[i] = m.session.Char(i)
+	}
+	lines := wrapLines(runes, width)
+
+	cur := len(lines) - 1
+	for idx, ln := range lines {
+		if m.session.Cursor() >= ln[0] && m.session.Cursor() < ln[1] {
+			cur = idx
+			break
+		}
+	}
+
+	first := cur - 1
+	if first < 0 {
+		first = 0
+	}
+	last := first + visibleLines
+	if last > len(lines) {
+		last = len(lines)
+	}
+
+	var b strings.Builder
+	for _, ln := range lines[first:last] {
+		b.WriteString(" ")
+		for i := ln[0]; i < ln[1]; i++ {
+			b.WriteString(m.renderChar(i))
+		}
+		b.WriteString("\n")
+	}
+	return b.String()
+}
+
 func (m model) View() string {
 	if m.finished {
 		return m.resultsView()
-	}
-	var b strings.Builder
-	for i := 0; i < m.session.Len(); i++ {
-		s := string(m.session.Char(i))
-		switch m.session.State(i) {
-		case typing.Correct:
-			b.WriteString(correctStyle.Render(s))
-		case typing.Incorrect:
-			b.WriteString(wrongStyle.Render(s))
-		default:
-			if i == m.session.Cursor() {
-				b.WriteString(cursorStyle.Render(s))
-			} else {
-				b.WriteString(pendingStyle.Render(s))
-			}
-		}
 	}
 
 	status := "start typing to begin"
 	if m.session.Started() {
 		status = fmt.Sprintf("%ds", m.remaining)
 	}
-	return "\n " + timerStyle.Render(status) + "\n\n " + b.String() + "\n\n " + dimStyle.Render("tab restart • esc quit") + "\n"
+	return "\n " + timerStyle.Render(status) + "\n\n " + m.textView() + "\n " + dimStyle.Render("tab restart • esc quit") + "\n"
 }
 
 func (m model) resultsView() string {
@@ -139,8 +190,17 @@ func (m model) resultsView() string {
 }
 
 func main() {
-	if _, err := tea.NewProgram(newModel(0)).Run(); err != nil {
-		fmt.Println("error:", err)
+	seconds := flag.Int("t", 30, "test duration in seconds (15 30 or 60)")
+	flag.Parse()
+
+	switch *seconds {
+	case 15, 30, 60:
+	default:
+		fmt.Fprintln(os.Stderr, "keyzen: -t must be 15, 30 or 60")
+		os.Exit(2)
+	}
+	if _, err := tea.NewProgram(newModel(0, *seconds, 80)).Run(); err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
 
