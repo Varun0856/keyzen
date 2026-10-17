@@ -5,13 +5,13 @@ import (
 	"os"
 	"strings"
 
+	"github.com/Varun0856/keyzen/internal/typing"
 	tea "github.com/charmbracelet/bubbletea"
 	lipgloss "github.com/charmbracelet/lipgloss"
 )
 
 type model struct {
-	target string
-	typed  []rune
+	session *typing.Session
 }
 
 var (
@@ -24,24 +24,17 @@ var (
 func (m model) Init() tea.Cmd { return nil }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	if msg, ok := msg.(tea.KeyMsg); ok {
 		switch msg.Type {
 		case tea.KeyEsc, tea.KeyCtrlC:
 			return m, tea.Quit
-
 		case tea.KeyBackspace:
-			if len(m.typed) > 0 {
-				m.typed = m.typed[:len(m.typed)-1]
-			}
-
-		case tea.KeyRunes, tea.KeySpace:
-			if len(m.typed) < len([]rune(m.target)) {
-				if msg.Type == tea.KeySpace {
-					m.typed = append(m.typed, ' ')
-				} else {
-					m.typed = append(m.typed, msg.Runes...)
-				}
+			m.session.Backspace()
+		case tea.KeySpace:
+			m.session.Type(' ')
+		case tea.KeyRunes:
+			for _, r := range msg.Runes {
+				m.session.Type(r)
 			}
 		}
 	}
@@ -51,27 +44,27 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) View() string {
 	var b strings.Builder
-	for i, ch := range []rune(m.target) {
-		s := string(ch)
-		switch {
-		case i < len(m.typed):
-			if m.typed[i] == ch {
-				b.WriteString(correctStyle.Render(s))
-			} else {
-				b.WriteString(wrongStyle.Render(s))
-			}
-		case i == len(m.typed):
-			b.WriteString(cursorStyle.Render(s))
+	for i := 0; i < m.session.Len(); i++ {
+		s := string(m.session.Char(i))
+		switch m.session.State(i) {
+		case typing.Correct:
+			b.WriteString(correctStyle.Render(s))
+		case typing.Incorrect:
+			b.WriteString(wrongStyle.Render(s))
 		default:
-			b.WriteString(pendingStyle.Render(s))
+			if i == m.session.Cursor() {
+				b.WriteString(cursorStyle.Render(s))
+			} else {
+				b.WriteString(pendingStyle.Render(s))
+			}
 		}
 	}
-	return "\n  " + b.String() + "\n\n  esc to quit\n"
+	return "\n " + b.String() + "\n\n  esc to quit\n"
 }
 
 func main() {
-	p := tea.NewProgram(model{target: "the quick brown fox"})
-	if _, err := p.Run(); err != nil {
+	m := model{session: typing.NewSession("The quick brown fox jumps over the lazy dog")}
+	if _, err := tea.NewProgram(m).Run(); err != nil {
 		fmt.Println("error:", err)
 		os.Exit(1)
 	}
