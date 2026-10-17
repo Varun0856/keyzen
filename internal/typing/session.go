@@ -1,5 +1,7 @@
 package typing
 
+import "time"
+
 type CharState int
 
 const (
@@ -9,8 +11,9 @@ const (
 )
 
 type Session struct {
-	target []rune
-	typed  []rune
+	target    []rune
+	typed     []rune
+	startedAt time.Time
 }
 
 func NewSession(target string) *Session {
@@ -21,8 +24,13 @@ func (s *Session) Type(r rune) {
 	if s.Done() {
 		return
 	}
+	if s.startedAt.IsZero() {
+		s.startedAt = time.Now()
+	}
 	s.typed = append(s.typed, r)
 }
+
+func (s *Session) Started() bool { return !s.startedAt.IsZero() }
 
 func (s *Session) Backspace() {
 	if len(s.typed) > 0 {

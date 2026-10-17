@@ -47,3 +47,19 @@ func TestSessionBackSpaceAndOverflow(t *testing.T) {
 		t.Fatalf("after backspace expected cursor 1, got %d", s.Cursor())
 	}
 }
+
+func TestSessionStartsOnFirstKey(t *testing.T) {
+	s := NewSession("ab")
+	if s.Started() {
+		t.Fatal("should not be started before any input")
+	}
+	s.Backspace()
+	if s.Started() {
+		t.Fatal("backspace should not started the clock")
+	}
+
+	s.Type('a')
+	if !s.Started() {
+		t.Fatal("first keystroke should start the clock")
+	}
+}
