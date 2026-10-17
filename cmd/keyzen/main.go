@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Varun0856/keyzen/internal/typing"
+	"github.com/Varun0856/keyzen/internal/words"
 	tea "github.com/charmbracelet/bubbletea"
 	lipgloss "github.com/charmbracelet/lipgloss"
 )
@@ -63,7 +64,7 @@ func (m model) View() string {
 }
 
 func main() {
-	m := model{session: typing.NewSession("The quick brown fox jumps over the lazy dog")}
+	m := model{session: typing.NewSession(words.Random(15))}
 	if _, err := tea.NewProgram(m).Run(); err != nil {
 		fmt.Println("error:", err)
 		os.Exit(1)
