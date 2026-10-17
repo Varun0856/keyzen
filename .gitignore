@@ -1,4 +1,4 @@
-keyzen
+/keyzen
 # Go binaries and build artifacts
 *.exe
 *.exe~
