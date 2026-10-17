@@ -63,3 +63,18 @@ func TestSessionStartsOnFirstKey(t *testing.T) {
 		t.Fatal("first keystroke should start the clock")
 	}
 }
+
+func TestMistakesCountEvenAfterBackspace(t *testing.T) {
+	s := NewSession("ab")
+	s.Type('x') // wrong
+	s.Backspace()
+	s.Type('a')
+	s.Type('b')
+
+	if s.keystrokes != 3 || s.mistakes != 1 {
+		t.Fatalf("keystrokes=%d mistakes=%d, want 3 and 1", s.keystrokes, s.mistakes)
+	}
+	if s.CorrectCount() != 2 {
+		t.Fatalf("CorrectCount = %d, want 2", s.CorrectCount())
+	}
+}
