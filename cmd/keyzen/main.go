@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Varun0856/keyzen/internal/storage"
 	"github.com/Varun0856/keyzen/internal/typing"
 	"github.com/Varun0856/keyzen/internal/words"
 	tea "github.com/charmbracelet/bubbletea"
@@ -26,6 +27,7 @@ var (
 	timerStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Bold(true)
 	bigStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("6")).Bold(true)
 	dimStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	goldStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Bold(true)
 )
 
 type tickMsg struct{ gen int }
@@ -38,21 +40,45 @@ func tick(gen int) tea.Cmd {
 
 type model struct {
 	session   *typing.Session
+	store     *storage.Store
 	seconds   int
 	remaining int
 	finished  bool
 	gen       int
 	width     int
+
+	best    storage.Best
+	hasBest bool
+	newBest bool
 }
 
-func newModel(gen, seconds, width int) model {
+func newModel(gen, seconds, width int, store *storage.Store) model {
 	return model{
 		session:   typing.NewSession(words.Random(seconds * 3)),
+		store:     store,
 		seconds:   seconds,
 		remaining: seconds,
 		gen:       gen,
 		width:     width,
 	}
+}
+
+func (m *model) finish() {
+	m.session.Finish()
+	m.finished = true
+
+	if m.store == nil {
+		return
+	}
+	st := m.session.Stats()
+	if st.WPM <= 0 {
+		return
+	}
+	best, isNew, err := m.store.Record(m.seconds, st.WPM, st.Accuracy)
+	if err != nil {
+		return
+	}
+	m.best, m.hasBest, m.newBest = best, true, isNew
 }
 
 func (m model) Init() tea.Cmd { return nil }
@@ -66,7 +92,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyEsc, tea.KeyCtrlC:
 			return m, tea.Quit
 		case tea.KeyTab:
-			return newModel(m.gen+1, m.seconds, m.width), nil
+			return newModel(m.gen+1, m.seconds, m.width, m.store), nil
 		}
 		if m.finished {
 			return m, nil
@@ -86,7 +112,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		if m.session.Done() {
-			m.finished = true
+			m.finish()
 			return m, nil
 		}
 		if !wasStarted && m.session.Started() {
@@ -99,8 +125,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.remaining--
 		if m.remaining <= 0 {
-			m.session.Finish()
-			m.finished = true
+			m.finish()
 			return m, nil
 		}
 		return m, tick(m.gen)
@@ -179,14 +204,22 @@ func (m model) View() string {
 
 func (m model) resultsView() string {
 	st := m.session.Stats()
-	return fmt.Sprintf(
-		"\n  %s  %s\n  %s  %s\n  %s  %d\n  %s  %.1fs\n\n  %s\n",
-		dimStyle.Render("wpm     "), bigStyle.Render(fmt.Sprintf("%.0f", st.WPM)),
-		dimStyle.Render("accuracy"), bigStyle.Render(fmt.Sprintf("%.1f%%", st.Accuracy)),
-		dimStyle.Render("correct "), st.Correct,
-		dimStyle.Render("time    "), st.Elapsed.Seconds(),
-		dimStyle.Render("tab restart • esc quit"),
-	)
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "\n  %s  %s\n", dimStyle.Render("wpm     "), bigStyle.Render(fmt.Sprintf("%.0f", st.WPM)))
+	fmt.Fprintf(&b, "  %s  %s\n", dimStyle.Render("accuracy"), bigStyle.Render(fmt.Sprintf("%.1f%%", st.Accuracy)))
+	fmt.Fprintf(&b, "  %s  %d\n", dimStyle.Render("correct "), st.Correct)
+	fmt.Fprintf(&b, "  %s  %.1fs\n", dimStyle.Render("time    "), st.Elapsed.Seconds())
+
+	switch {
+	case m.hasBest && m.newBest:
+		fmt.Fprintf(&b, "\n  %s\n", goldStyle.Render("new best for "+fmt.Sprintf("%ds", m.seconds)+"!"))
+	case m.hasBest:
+		fmt.Fprintf(&b, "\n  %s\n", dimStyle.Render(fmt.Sprintf("best for %ds: %.0f wpm", m.seconds, m.best.WPM)))
+	}
+
+	fmt.Fprintf(&b, "\n  %s\n", dimStyle.Render("tab restart • esc quit"))
+	return b.String()
 }
 
 func main() {
@@ -199,7 +232,14 @@ func main() {
 		fmt.Fprintln(os.Stderr, "keyzen: -t must be 15, 30 or 60")
 		os.Exit(2)
 	}
-	if _, err := tea.NewProgram(newModel(0, *seconds, 80)).Run(); err != nil {
+
+	var store *storage.Store
+	if path, err := storage.DefaultPath(); err != nil {
+		fmt.Fprintln(os.Stderr, "keyzen: scores won't be saved:", err)
+	} else {
+		store = storage.New(path)
+	}
+	if _, err := tea.NewProgram(newModel(0, *seconds, 80, store)).Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
