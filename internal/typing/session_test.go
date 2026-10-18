@@ -78,3 +78,25 @@ func TestMistakesCountEvenAfterBackspace(t *testing.T) {
 		t.Fatalf("CorrectCount = %d, want 2", s.CorrectCount())
 	}
 }
+
+func TestSessionRecordsEvents(t *testing.T) {
+	s := NewSession("ab")
+	s.Type('x') // wrong
+	s.Backspace()
+	s.Type('a')
+	s.Type('b')
+
+	ev := s.Events()
+	if len(ev) != 3 {
+		t.Fatalf("got %d events, want 3", len(ev))
+	}
+	if ev[0].Expected != 'a' || ev[0].Typed != 'x' {
+		t.Errorf("event 0 = %+v, want expected a typed x", ev[0])
+	}
+	if ev[2].Expected != 'b' || ev[2].Typed != 'b' {
+		t.Errorf("event 2 = %+v, want expected b typed b", ev[2])
+	}
+	if ev[2].At < ev[0].At {
+		t.Errorf("timestamps went backwards: %v then %v", ev[0].At, ev[2].At)
+	}
+}

@@ -10,6 +10,12 @@ const (
 	Incorrect
 )
 
+type KeyEvent struct {
+	Expected rune
+	Typed    rune
+	At       time.Duration
+}
+
 type Session struct {
 	target     []rune
 	typed      []rune
@@ -17,6 +23,7 @@ type Session struct {
 	endedAt    time.Time
 	keystrokes int
 	mistakes   int
+	events     []KeyEvent
 }
 
 func NewSession(target string) *Session {
@@ -30,17 +37,24 @@ func (s *Session) Type(r rune) {
 	if s.startedAt.IsZero() {
 		s.startedAt = time.Now()
 	}
-
+	expected := s.target[len(s.typed)]
 	s.keystrokes++
-	if r != s.target[len(s.typed)] {
+	if r != expected {
 		s.mistakes++
 	}
+	s.events = append(s.events, KeyEvent{
+		Expected: expected,
+		Typed:    r,
+		At:       time.Since(s.startedAt),
+	})
 	s.typed = append(s.typed, r)
 
 	if s.Done() && s.endedAt.IsZero() {
 		s.endedAt = time.Now()
 	}
 }
+
+func (s *Session) Events() []KeyEvent { return s.events }
 
 func (s *Session) Started() bool { return !s.startedAt.IsZero() }
 
