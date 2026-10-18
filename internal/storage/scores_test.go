@@ -26,21 +26,21 @@ func TestRecord(t *testing.T) {
 
 	steps := []struct {
 		name    string
-		seconds int
+		key     string
 		wpm     float64
 		wantNew bool
 		wantWPM float64
 	}{
-		{"first score is a best", 30, 50, true, 50},
-		{"lower score is not", 30, 40, false, 50},
-		{"equal score is not", 30, 50, false, 50},
-		{"higher score is", 30, 60, true, 60},
-		{"other mode is separate", 60, 20, true, 20},
+		{"first score is a best", "30s", 50, true, 50},
+		{"lower score is not", "30s", 40, false, 50},
+		{"equal score is not", "30s", 50, false, 50},
+		{"higher score is", "30s", 60, true, 60},
+		{"other mode is separate", "60s", 20, true, 20},
 	}
 
 	for _, s := range steps {
 		t.Run(s.name, func(t *testing.T) {
-			best, isNew, err := st.Record(s.seconds, s.wpm, 95)
+			best, isNew, err := st.Record(s.key, s.wpm, 95)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -55,7 +55,7 @@ func TestRecord(t *testing.T) {
 func TestPersistsAcrossStores(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "scores.json")
 
-	if _, _, err := New(path).Record(15, 70, 98); err != nil {
+	if _, _, err := New(path).Record("15s", 70, 98); err != nil {
 		t.Fatal(err)
 	}
 

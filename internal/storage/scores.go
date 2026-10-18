@@ -71,19 +71,19 @@ func (s *Store) Save(sc Scores) error {
 	return os.Rename(tmp, s.path)
 }
 
-func (s *Store) Record(seconds int, wpm, accuracy float64) (Best, bool, error) {
+func (s *Store) Record(key string, wpm, accuracy float64) (Best, bool, error) {
 	sc, err := s.Load()
 	if err != nil {
 		return Best{}, false, err
 	}
 
-	prev, ok := sc[key(seconds)]
+	prev, ok := sc[key]
 	if ok && wpm <= prev.WPM {
 		return prev, false, nil
 	}
 
 	best := Best{WPM: wpm, Accuracy: accuracy, Date: time.Now().UTC()}
-	sc[key(seconds)] = best
+	sc[key] = best
 	if err := s.Save(sc); err != nil {
 		return Best{}, false, err
 	}
