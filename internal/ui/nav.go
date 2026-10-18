@@ -19,6 +19,7 @@ type result struct {
 	best    storage.Best
 	hasBest bool
 	newBest bool
+	weak    []typing.KeyRank
 }
 
 func send(msg tea.Msg) tea.Cmd {

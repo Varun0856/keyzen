@@ -57,7 +57,7 @@ func (m testScreen) Init() tea.Cmd { return nil }
 func (m *testScreen) finish() tea.Cmd {
 	m.finished = true
 	st := m.session.Stats()
-	res := result{md: m.md, stats: st}
+	res := result{md: m.md, stats: st, weak: typing.WeakKeys(typing.AnalyzeKeys(m.session.Events()), 3)}
 
 	if m.store != nil && st.WPM > 0 {
 		best, isNew, err := m.store.Record(m.md.Key(), st.WPM, st.Accuracy)

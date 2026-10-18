@@ -46,6 +46,15 @@ func (m resultsScreen) View() string {
 	fmt.Fprintf(&b, "%s  %d\n", dimStyle.Render("correct "), st.Correct)
 	fmt.Fprintf(&b, "%s  %.1fs\n", dimStyle.Render("time    "), st.Elapsed.Seconds())
 
+	if len(m.res.weak) > 0 {
+		b.WriteString("\n" + dimStyle.Render("weakest keys") + "\n")
+		for _, k := range m.res.weak {
+			fmt.Fprintf(&b, "%s %3.0f%% %4dms\n",
+				bigStyle.Render(string(k.Key)),
+				(1-k.Stat.ErrorRate())*100,
+				k.Stat.AvgInterval().Milliseconds())
+		}
+	}
 	switch {
 	case m.res.hasBest && m.res.newBest:
 		b.WriteString("\n" + goldStyle.Render("new best!") + "\n")
