@@ -1,4 +1,4 @@
-package main
+package ui
 
 func wrapLines(text []rune, width int) [][2]int {
 	if width < 1 {
