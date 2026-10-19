@@ -13,6 +13,8 @@ type startTestMsg struct{ md mode.Mode }
 
 type showResultsMsg struct{ res result }
 
+type showStatsMsg struct{}
+
 type result struct {
 	md      mode.Mode
 	stats   typing.Stats

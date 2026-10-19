@@ -8,13 +8,14 @@ import (
 
 type App struct {
 	store         *storage.Store
+	keys          *storage.KeyStore
 	current       tea.Model
 	width, height int
 	gen           int
 }
 
-func New(store *storage.Store) App {
-	a := App{store: store, width: 80, height: 24}
+func New(store *storage.Store, keys *storage.KeyStore) App {
+	a := App{store: store, keys: keys, width: 80, height: 24}
 	a.current = newMenu(store, a.width, a.height)
 	return a
 }
@@ -37,7 +38,11 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case startTestMsg:
 		a.gen++
-		a.current = newTest(msg.md, a.store, a.gen, a.width, a.height)
+		a.current = newTest(msg.md, a.store, a.keys, a.gen, a.width, a.height)
+		return a, a.current.Init()
+
+	case showStatsMsg:
+		a.current = newStats(a.keys, a.width, a.height)
 		return a, a.current.Init()
 
 	case showResultsMsg:

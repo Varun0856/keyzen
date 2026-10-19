@@ -47,6 +47,8 @@ func (m menu) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "enter":
 			return m, send(startTestMsg{md: m.modes[m.cursor]})
+		case "s":
+			return m, send(showStatsMsg{})
 		case "q", "esc":
 			return m, tea.Quit
 		}
@@ -83,6 +85,6 @@ func (m menu) View() string {
 		b.WriteString(" " + marker + label + best + "\n")
 	}
 
-	b.WriteString("\n" + dimStyle.Render("↑/↓ select • enter start • q quit") + "\n")
-	return place(m.width, m.height, 36, b.String())
+	b.WriteString("\n" + dimStyle.Render("↑/↓ select • enter start • s stats • q quit") + "\n")
+	return place(m.width, m.height, 44, b.String())
 }

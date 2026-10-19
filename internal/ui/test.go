@@ -31,6 +31,7 @@ func tick(gen int) tea.Cmd {
 type testScreen struct {
 	md            mode.Mode
 	store         *storage.Store
+	keys          *storage.KeyStore
 	session       *typing.Session
 	remaining     int
 	finished      bool
@@ -38,10 +39,11 @@ type testScreen struct {
 	width, height int
 }
 
-func newTest(md mode.Mode, store *storage.Store, gen, w, h int) testScreen {
+func newTest(md mode.Mode, store *storage.Store, keys *storage.KeyStore, gen, w, h int) testScreen {
 	return testScreen{
 		md:        md,
 		store:     store,
+		keys:      keys,
 		session:   typing.NewSession(words.Random(md.TextLength())),
 		remaining: md.Seconds,
 		gen:       gen,
@@ -52,18 +54,26 @@ func newTest(md mode.Mode, store *storage.Store, gen, w, h int) testScreen {
 
 func (m testScreen) Init() tea.Cmd { return nil }
 
-// finish records the score and asks the app to show the results screen.
-// Pointer receiver: it changes m.finished.
 func (m *testScreen) finish() tea.Cmd {
 	m.finished = true
 	st := m.session.Stats()
-	res := result{md: m.md, stats: st, weak: typing.WeakKeys(typing.AnalyzeKeys(m.session.Events()), 3)}
+	events := m.session.Events()
+	perKey := typing.AnalyzeKeys(events)
+
+	res := result{
+		md:    m.md,
+		stats: st,
+		weak:  typing.WeakKeys(perKey, 3),
+	}
 
 	if m.store != nil && st.WPM > 0 {
 		best, isNew, err := m.store.Record(m.md.Key(), st.WPM, st.Accuracy)
 		if err == nil {
 			res.best, res.hasBest, res.newBest = best, true, isNew
 		}
+	}
+	if m.keys != nil && len(events) > 0 {
+		_ = m.keys.Record(perKey) // best effort, never break the test over it
 	}
 	return send(showResultsMsg{res: res})
 }
@@ -120,7 +130,6 @@ func (m testScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// wordsDone counts the spaces already passed, i.e. completed words.
 func (m testScreen) wordsDone() int {
 	n := 0
 	for i := 0; i < m.session.Cursor(); i++ {
@@ -156,8 +165,6 @@ func (m testScreen) renderChar(i int) string {
 	return pendingStyle.Render(s)
 }
 
-// textView draws exactly visibleLines lines, scrolling with the cursor.
-// Always the same height, so the screen doesn't jump near the end.
 func (m testScreen) textView() string {
 	runes := make([]rune, m.session.Len())
 	for i := range runes {

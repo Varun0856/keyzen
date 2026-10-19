@@ -17,7 +17,12 @@ func main() {
 		store = storage.New(path)
 	}
 
-	p := tea.NewProgram(ui.New(store), tea.WithAltScreen())
+	var keys *storage.KeyStore
+	if path, err := storage.DefaultKeysPath(); err == nil {
+		keys = storage.NewKeyStore(path)
+	}
+
+	p := tea.NewProgram(ui.New(store, keys), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
