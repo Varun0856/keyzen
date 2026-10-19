@@ -55,20 +55,11 @@ func (s *Store) Load() (Scores, error) {
 }
 
 func (s *Store) Save(sc Scores) error {
-	if err := os.MkdirAll(filepath.Dir(s.path), 0o755); err != nil {
-		return err
-	}
-
 	data, err := json.MarshalIndent(sc, "", " ")
 	if err != nil {
 		return err
 	}
-
-	tmp := s.path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o644); err != nil {
-		return err
-	}
-	return os.Rename(tmp, s.path)
+	return writeAtomic(s.path, data)
 }
 
 func (s *Store) Record(key string, wpm, accuracy float64) (Best, bool, error) {
