@@ -10,7 +10,6 @@ import (
 	"github.com/Varun0856/keyzen/internal/mode"
 	"github.com/Varun0856/keyzen/internal/storage"
 	"github.com/Varun0856/keyzen/internal/typing"
-	"github.com/Varun0856/keyzen/internal/words"
 )
 
 const (
@@ -44,7 +43,7 @@ func newTest(md mode.Mode, store *storage.Store, keys *storage.KeyStore, gen, w,
 		md:        md,
 		store:     store,
 		keys:      keys,
-		session:   typing.NewSession(words.Random(md.TextLength())),
+		session:   typing.NewSession(buildText(md, keys)),
 		remaining: md.Seconds,
 		gen:       gen,
 		width:     w,
