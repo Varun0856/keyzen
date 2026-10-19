@@ -12,6 +12,7 @@ func TestKeyAndLength(t *testing.T) {
 		{"timed 30", timed(30), "30s", 90},
 		{"timed 15", timed(15), "15s", 45},
 		{"25 words", wordCount(25), "25w", 25},
+		{"practise", practice(), "practice", 25},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
