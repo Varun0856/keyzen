@@ -81,3 +81,36 @@ func WeakKeys(stats map[rune]KeyStat, n int) []KeyRank {
 	}
 	return ranks
 }
+
+func Weights(stats map[rune]KeyStat) map[rune]float64 {
+	var sum time.Duration
+	n := 0
+	for _, st := range stats {
+		if st.Timed >= 5 {
+			sum += st.AvgInterval()
+			n++
+		}
+	}
+
+	var mean time.Duration
+	if n > 0 {
+		mean = sum / time.Duration(n)
+	}
+
+	out := map[rune]float64{}
+	for r, st := range stats {
+		if r == ' ' || st.Presses < 5 {
+			continue
+		}
+		w := st.ErrorRate() * 20
+		if mean > 0 && st.Timed >= 5 {
+			if slow := float64(st.AvgInterval())/float64(mean) - 1; slow > 0 {
+				w += slow * 2
+			}
+		}
+		if w > 0 {
+			out[r] = w
+		}
+	}
+	return out
+}

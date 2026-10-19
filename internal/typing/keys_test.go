@@ -70,3 +70,28 @@ func TestKeyStatAdd(t *testing.T) {
 		t.Errorf("Add = %+v, want %+v", got, want)
 	}
 }
+
+func TestWeights(t *testing.T) {
+	ms := time.Millisecond
+	stats := map[rune]KeyStat{
+		'a': {Presses: 100, Mistakes: 10, Total: 9000 * ms, Timed: 90},
+		'b': {Presses: 100, Mistakes: 0, Total: 10000 * ms, Timed: 100},
+		'd': {Presses: 100, Mistakes: 0, Total: 20000 * ms, Timed: 100},
+		'c': {Presses: 4, Mistakes: 4},
+		' ': {Presses: 100, Mistakes: 50},
+	}
+
+	got := Weights(stats)
+
+	if !near(got['a'], 2.0) {
+		t.Errorf("a = %.3f, want 2.0 (10%% errors)", got['a'])
+	}
+	if !near(got['d'], 1.0) {
+		t.Errorf("d = %.3f, want 1.0 (50%% slower than the mean)", got['d'])
+	}
+	for _, r := range []rune{'b', 'c', ' '} {
+		if _, ok := got[r]; ok {
+			t.Errorf("%q should have no weight, got %.3f", r, got[r])
+		}
+	}
+}
