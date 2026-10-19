@@ -71,13 +71,14 @@ func (m statsScreen) levelFor(r rune) level {
 }
 
 func (m statsScreen) View() string {
+	const cw = 52
+
 	var b strings.Builder
-	b.WriteString(titleStyle.Render("stats") + "\n")
+	b.WriteString(titleStyle.Render("stats") + "\n\n")
 
 	if m.total == 0 {
-		b.WriteString(dimStyle.Render("no data yet, finish a test first") + "\n\n")
-		b.WriteString(dimStyle.Render("esc menu • q quit") + "\n")
-		return place(m.width, m.height, 44, b.String())
+		b.WriteString(dimStyle.Render("no data yet, finish a test first"))
+		return screen(m.width, m.height, panel(b.String(), cw), hints("esc", "menu", "q", "quit"))
 	}
 
 	metric := "accuracy"
@@ -100,17 +101,18 @@ func (m statsScreen) View() string {
 		levelStyle(levelOK).Render(" ok ") + " " +
 		levelStyle(levelBad).Render(" weak ") + " " +
 		levelStyle(levelWorst).Render(" worst ") + " " +
-		levelStyle(levelNone).Render(" no data "+"\n"))
+		levelStyle(levelNone).Render(" no data ") + "\n")
 
 	if weak := typing.WeakKeys(m.stats, 5); len(weak) > 0 {
 		b.WriteString("\n" + groupStyle.Render("weakest keys") + "\n")
 		for _, k := range weak {
-			fmt.Fprintf(&b, "%s %3.0f%% acc %4dms\n",
+			fmt.Fprintf(&b, "%s  %3.0f%% acc  %4dms\n",
 				bigStyle.Render(string(k.Key)),
 				(1-k.Stat.ErrorRate())*100,
 				k.Stat.AvgInterval().Milliseconds())
 		}
 	}
-	b.WriteString("\n" + dimStyle.Render("tab accuracy/speed • esc menu • q quit") + "\n")
-	return place(m.width, m.height, 44, b.String())
+
+	body := strings.TrimRight(b.String(), "\n")
+	return screen(m.width, m.height, panel(body, cw), hints("tab", "accuracy/speed", "t", "theme", "esc", "menu", "q", "quit"))
 }
