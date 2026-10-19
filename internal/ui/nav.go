@@ -22,6 +22,7 @@ type result struct {
 	hasBest bool
 	newBest bool
 	weak    []typing.KeyRank
+	series  []float64
 }
 
 func send(msg tea.Msg) tea.Cmd {

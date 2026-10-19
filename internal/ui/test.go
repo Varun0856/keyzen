@@ -6,6 +6,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/Varun0856/keyzen/internal/mode"
 	"github.com/Varun0856/keyzen/internal/storage"
@@ -13,12 +14,10 @@ import (
 )
 
 const (
-	maxTextWidth = 60
+	maxTextWidth = 90
 	visibleLines = 3
 )
 
-// tickMsg carries the generation of the test it belongs to, so a tick
-// left over from an earlier test is recognised and ignored.
 type tickMsg struct{ gen int }
 
 func tick(gen int) tea.Cmd {
@@ -60,9 +59,10 @@ func (m *testScreen) finish() tea.Cmd {
 	perKey := typing.AnalyzeKeys(events)
 
 	res := result{
-		md:    m.md,
-		stats: st,
-		weak:  typing.WeakKeys(perKey, 3),
+		md:     m.md,
+		stats:  st,
+		weak:   typing.WeakKeys(perKey, 3),
+		series: typing.WPMSeries(events, seriesBucket(st.Elapsed)),
 	}
 
 	if m.store != nil && st.WPM > 0 {
@@ -72,7 +72,7 @@ func (m *testScreen) finish() tea.Cmd {
 		}
 	}
 	if m.keys != nil && len(events) > 0 {
-		_ = m.keys.Record(perKey) // best effort, never break the test over it
+		_ = m.keys.Record(perKey)
 	}
 	return send(showResultsMsg{res: res})
 }
@@ -140,14 +140,7 @@ func (m testScreen) wordsDone() int {
 }
 
 func (m testScreen) textWidth() int {
-	w := m.width - 8
-	if w > maxTextWidth {
-		w = maxTextWidth
-	}
-	if w < 10 {
-		w = 10
-	}
-	return w
+	return clamp(m.width-24, 20, maxTextWidth)
 }
 
 func (m testScreen) renderChar(i int) string {
@@ -188,35 +181,72 @@ func (m testScreen) textView() string {
 		last = len(lines)
 	}
 
-	var b strings.Builder
-	shown := 0
+	rendered := make([]string, 0, visibleLines)
 	for _, ln := range lines[first:last] {
+		var b strings.Builder
 		for i := ln[0]; i < ln[1]; i++ {
 			b.WriteString(m.renderChar(i))
 		}
-		b.WriteString("\n")
-		shown++
+		rendered = append(rendered, b.String())
 	}
-	for ; shown < visibleLines; shown++ {
-		b.WriteString("\n")
+
+	for len(rendered) < visibleLines {
+		rendered = append(rendered, "")
 	}
-	return b.String()
+	return strings.Join(rendered, "\n\n")
 }
 
 func (m testScreen) View() string {
-	status := dimStyle.Render("start typing to begin")
-	if m.session.Started() {
-		if m.md.Kind == mode.Timed {
-			status = timerStyle.Render(fmt.Sprintf("%ds", m.remaining))
-		} else {
-			status = timerStyle.Render(fmt.Sprintf("%d/%d", m.wordsDone(), m.md.Words))
-		}
+	cw := m.textWidth() + 2 // a wrapped line can end with a trailing space
+	total := cw + panelExtraBig
+	started := m.session.Started()
+
+	// What the big number counts, and how far along we are.
+	progress := fmt.Sprint(m.remaining)
+	frac := 0.0
+	maxNumber := m.md.Seconds
+	if m.md.Kind == mode.Timed {
+		frac = float64(m.md.Seconds-m.remaining) / float64(m.md.Seconds)
+	} else {
+		progress = fmt.Sprint(m.wordsDone())
+		frac = float64(m.wordsDone()) / float64(m.md.Words)
+		maxNumber = m.md.Words
 	}
 
-	content := dimStyle.Render(m.md.Title()) + "\n" +
-		status + "\n\n" +
-		m.textView() + "\n" +
-		dimStyle.Render("tab restart • esc menu • ctrl+c quit")
+	var stats []string
+	if started {
+		st := m.session.Stats()
+		stats = append(stats,
+			bigStyle.Render(fmt.Sprintf("%.0f", st.WPM))+dimStyle.Render(" wpm"),
+			bigStyle.Render(fmt.Sprintf("%.0f%%", st.Accuracy))+dimStyle.Render(" accuracy"),
+		)
+	} else {
+		stats = append(stats, dimStyle.Render("start typing"), dimStyle.Render("to begin"))
+	}
+	if m.md.Kind != mode.Timed {
+		stats = append(stats, dimStyle.Render(fmt.Sprintf("of %d words", m.md.Words)))
+	}
+	statsBlock := strings.Join(stats, "\n")
 
-	return place(m.width, m.height, m.textWidth(), content)
+	var top string
+	if m.height >= 28 {
+		from, to := currentTheme.Accent, currentTheme.Accent2
+		if m.md.Kind == mode.Timed && started && m.remaining <= 5 {
+			from, to = currentTheme.Bad, currentTheme.Warn // last seconds: turn red
+		}
+		// Fix the width so the stats don't shift when 100 becomes 99.
+		heroWidth := bigWidth(strings.Repeat("0", len(fmt.Sprint(maxNumber))), 1)
+		hero := lipgloss.NewStyle().Width(heroWidth).Render(renderBig(progress, 1, from, to))
+		top = lipgloss.JoinHorizontal(lipgloss.Center, hero, "      ", statsBlock)
+	} else {
+		top = timerStyle.Render(progress) + "    " + strings.ReplaceAll(statsBlock, "\n", "    ")
+	}
+
+	header := accentStyle.Render("keyzen") + dimStyle.Render("  ·  "+m.md.Title())
+	bar := progressBar(frac, total)
+	text := bigPanel(m.textView(), cw)
+	foot := hints("tab", "restart", "esc", "menu", "ctrl+c", "quit")
+
+	content := header + "\n\n" + top + "\n\n" + bar + "\n" + text + "\n\n" + foot
+	return place(m.width, m.height, total, content)
 }

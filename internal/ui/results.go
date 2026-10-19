@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type resultsScreen struct {
@@ -39,29 +40,44 @@ func (m resultsScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m resultsScreen) View() string {
 	st := m.res.stats
 
-	var b strings.Builder
-	b.WriteString(dimStyle.Render(m.res.md.Title()) + "\n\n")
-	fmt.Fprintf(&b, "%s  %s\n", dimStyle.Render("wpm     "), bigStyle.Render(fmt.Sprintf("%.0f", st.WPM)))
-	fmt.Fprintf(&b, "%s  %s\n", dimStyle.Render("accuracy"), bigStyle.Render(fmt.Sprintf("%.1f%%", st.Accuracy)))
-	fmt.Fprintf(&b, "%s  %d\n", dimStyle.Render("correct "), st.Correct)
-	fmt.Fprintf(&b, "%s  %.1fs\n", dimStyle.Render("time    "), st.Elapsed.Seconds())
+	scale := 1
+	if m.width >= 100 && m.height >= 30 {
+		scale = 2
+	}
+	hero := renderBig(fmt.Sprintf("%.0f", st.WPM), scale, currentTheme.Accent, currentTheme.Accent2) +
+		"\n" + dimStyle.Render("words per minute")
 
-	if len(m.res.weak) > 0 {
-		b.WriteString("\n" + dimStyle.Render("weakest keys") + "\n")
-		for _, k := range m.res.weak {
-			fmt.Fprintf(&b, "%s %3.0f%% %4dms\n",
-				bigStyle.Render(string(k.Key)),
-				(1-k.Stat.ErrorRate())*100,
-				k.Stat.AvgInterval().Milliseconds())
-		}
+	side := []string{
+		bigStyle.Render(fmt.Sprintf("%.1f%%", st.Accuracy)) + dimStyle.Render("  accuracy"),
+		textStyle.Render(fmt.Sprintf("%d", st.Correct)) + dimStyle.Render("  correct characters"),
+		textStyle.Render(fmt.Sprintf("%.1fs", st.Elapsed.Seconds())) + dimStyle.Render("  time"),
 	}
 	switch {
 	case m.res.hasBest && m.res.newBest:
-		b.WriteString("\n" + goldStyle.Render("new best!") + "\n")
+		side = append(side, goldStyle.Render("★ new best"))
 	case m.res.hasBest:
-		b.WriteString("\n" + dimStyle.Render(fmt.Sprintf("best: %.0f wpm", m.res.best.WPM)) + "\n")
+		side = append(side, dimStyle.Render(fmt.Sprintf("best  %.0f wpm", m.res.best.WPM)))
+	}
+	top := lipgloss.JoinHorizontal(lipgloss.Center, hero, "        ", strings.Join(side, "\n\n"))
+
+	var b strings.Builder
+	b.WriteString(dimStyle.Render(m.res.md.Title()) + "\n\n")
+	b.WriteString(top)
+
+	if line := sparkline(m.res.series); line != "" {
+		b.WriteString("\n\n" + accentStyle.Render(stretch(line, 2)) + "\n" + dimStyle.Render("speed over time"))
 	}
 
-	b.WriteString("\n" + dimStyle.Render("tab retry • m menu • q quit") + "\n")
-	return place(m.width, m.height, 30, b.String())
+	if len(m.res.weak) > 0 {
+		chips := make([]string, 0, len(m.res.weak))
+		for _, k := range m.res.weak {
+			chips = append(chips, bigStyle.Render(string(k.Key))+dimStyle.Render(
+				fmt.Sprintf(" %.0f%% %dms", (1-k.Stat.ErrorRate())*100, k.Stat.AvgInterval().Milliseconds())))
+		}
+		b.WriteString("\n\n" + groupStyle.Render("weakest keys") + "\n" + strings.Join(chips, "    "))
+	}
+
+	body := b.String()
+	foot := hints("tab", "retry", "m", "menu", "t", "theme", "q", "quit")
+	return screen(m.width, m.height, panel(body, lipgloss.Width(body)), foot)
 }
