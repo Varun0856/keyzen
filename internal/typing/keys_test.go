@@ -59,3 +59,14 @@ func TestWeakKeys(t *testing.T) {
 		})
 	}
 }
+
+func TestKeyStatAdd(t *testing.T) {
+	a := KeyStat{Presses: 2, Mistakes: 1, Total: 100 * time.Millisecond, Timed: 1}
+	b := KeyStat{Presses: 3, Mistakes: 0, Total: 200 * time.Millisecond, Timed: 2}
+
+	got := a.Add(b)
+	want := KeyStat{Presses: 5, Mistakes: 1, Total: 300 * time.Millisecond, Timed: 3}
+	if got != want {
+		t.Errorf("Add = %+v, want %+v", got, want)
+	}
+}

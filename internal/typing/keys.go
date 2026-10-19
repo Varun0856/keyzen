@@ -6,10 +6,19 @@ import (
 )
 
 type KeyStat struct {
-	Presses  int
-	Mistakes int
-	Total    time.Duration
-	Timed    int
+	Presses  int           `json:"presses"`
+	Mistakes int           `json:"mistakes"`
+	Total    time.Duration `json:"total"`
+	Timed    int           `json:"timed"`
+}
+
+func (k KeyStat) Add(o KeyStat) KeyStat {
+	return KeyStat{
+		Presses:  k.Presses + o.Presses,
+		Mistakes: k.Mistakes + o.Mistakes,
+		Total:    k.Total + o.Total,
+		Timed:    k.Timed + o.Timed,
+	}
 }
 
 func (k KeyStat) ErrorRate() float64 {
