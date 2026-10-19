@@ -9,13 +9,14 @@ import (
 type App struct {
 	store         *storage.Store
 	keys          *storage.KeyStore
+	cfg           *storage.ConfigStore
 	current       tea.Model
 	width, height int
 	gen           int
 }
 
-func New(store *storage.Store, keys *storage.KeyStore) App {
-	a := App{store: store, keys: keys, width: 80, height: 24}
+func New(store *storage.Store, keys *storage.KeyStore, cfg *storage.ConfigStore) App {
+	a := App{store: store, keys: keys, cfg: cfg, width: 80, height: 24}
 	a.current = newMenu(store, a.width, a.height)
 	return a
 }
@@ -30,6 +31,16 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		if msg.Type == tea.KeyCtrlC {
 			return a, tea.Quit
+		}
+
+		if msg.String() == "t" {
+			if _, typing := a.current.(testScreen); !typing {
+				name := cycleTheme()
+				if a.cfg != nil {
+					_ = a.cfg.Save(storage.Config{Theme: name})
+				}
+				return a, nil
+			}
 		}
 
 	case showMenuMsg:
