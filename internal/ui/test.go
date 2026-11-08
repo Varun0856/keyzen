@@ -11,6 +11,7 @@ import (
 	"github.com/Varun0856/keyzen/internal/mode"
 	"github.com/Varun0856/keyzen/internal/storage"
 	"github.com/Varun0856/keyzen/internal/typing"
+	"github.com/Varun0856/keyzen/internal/words"
 )
 
 const (
@@ -30,6 +31,7 @@ type testScreen struct {
 	md            mode.Mode
 	store         *storage.Store
 	keys          *storage.KeyStore
+	opts          words.Options
 	session       *typing.Session
 	remaining     int
 	finished      bool
@@ -37,12 +39,13 @@ type testScreen struct {
 	width, height int
 }
 
-func newTest(md mode.Mode, store *storage.Store, keys *storage.KeyStore, gen, w, h int) testScreen {
+func newTest(md mode.Mode, store *storage.Store, keys *storage.KeyStore, opts words.Options, gen, w, h int) testScreen {
 	return testScreen{
 		md:        md,
 		store:     store,
 		keys:      keys,
-		session:   typing.NewSession(buildText(md, keys)),
+		opts:      opts,
+		session:   typing.NewSession(buildText(md, keys, opts)),
 		remaining: md.Seconds,
 		gen:       gen,
 		width:     w,
@@ -61,12 +64,13 @@ func (m *testScreen) finish() tea.Cmd {
 	res := result{
 		md:     m.md,
 		stats:  st,
-		weak:   typing.WeakKeys(perKey, 3),
+		weak:   typing.Troublesome(perKey, 3),
 		series: typing.WPMSeries(events, seriesBucket(st.Elapsed)),
 	}
 
 	if m.store != nil && st.WPM > 0 {
-		best, isNew, err := m.store.Record(m.md.Key(), st.WPM, st.Accuracy)
+		key := m.md.Key() + m.opts.Suffix()
+		best, isNew, err := m.store.Record(key, st.WPM, st.Accuracy)
 		if err == nil {
 			res.best, res.hasBest, res.newBest = best, true, isNew
 		}
@@ -189,7 +193,6 @@ func (m testScreen) textView() string {
 		}
 		rendered = append(rendered, b.String())
 	}
-
 	for len(rendered) < visibleLines {
 		rendered = append(rendered, "")
 	}
@@ -197,11 +200,10 @@ func (m testScreen) textView() string {
 }
 
 func (m testScreen) View() string {
-	cw := m.textWidth() + 2 // a wrapped line can end with a trailing space
+	cw := m.textWidth() + 2
 	total := cw + panelExtraBig
 	started := m.session.Started()
 
-	// What the big number counts, and how far along we are.
 	progress := fmt.Sprint(m.remaining)
 	frac := 0.0
 	maxNumber := m.md.Seconds
@@ -232,9 +234,8 @@ func (m testScreen) View() string {
 	if m.height >= 28 {
 		from, to := currentTheme.Accent, currentTheme.Accent2
 		if m.md.Kind == mode.Timed && started && m.remaining <= 5 {
-			from, to = currentTheme.Bad, currentTheme.Warn // last seconds: turn red
+			from, to = currentTheme.Bad, currentTheme.Warn
 		}
-		// Fix the width so the stats don't shift when 100 becomes 99.
 		heroWidth := bigWidth(strings.Repeat("0", len(fmt.Sprint(maxNumber))), 1)
 		hero := lipgloss.NewStyle().Width(heroWidth).Render(renderBig(progress, 1, from, to))
 		top = lipgloss.JoinHorizontal(lipgloss.Center, hero, "      ", statsBlock)
@@ -243,6 +244,9 @@ func (m testScreen) View() string {
 	}
 
 	header := accentStyle.Render("keyzen") + dimStyle.Render("  ·  "+m.md.Title())
+	if d := m.opts.Describe(); d != "" {
+		header += dimStyle.Render("  ·  " + d)
+	}
 	bar := progressBar(frac, total)
 	text := bigPanel(m.textView(), cw)
 	foot := hints("tab", "restart", "esc", "menu", "ctrl+c", "quit")

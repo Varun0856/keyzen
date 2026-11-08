@@ -1,19 +1,24 @@
 package ui
 
 import (
+	tea "github.com/charmbracelet/bubbletea"
+
 	"github.com/Varun0856/keyzen/internal/mode"
 	"github.com/Varun0856/keyzen/internal/storage"
 	"github.com/Varun0856/keyzen/internal/typing"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 type showMenuMsg struct{}
+
+type showStatsMsg struct{}
+
+type showSettingsMsg struct{}
 
 type startTestMsg struct{ md mode.Mode }
 
 type showResultsMsg struct{ res result }
 
-type showStatsMsg struct{}
+type settingsChangedMsg struct{ cfg storage.Config }
 
 type result struct {
 	md      mode.Mode

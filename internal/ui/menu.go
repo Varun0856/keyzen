@@ -16,7 +16,6 @@ type menuGroup struct {
 	modes []mode.Mode
 }
 
-// groupModes collects modes into groups, in order of first appearance.
 func groupModes(ms []mode.Mode) []menuGroup {
 	var groups []menuGroup
 	index := map[string]int{}
@@ -33,12 +32,13 @@ func groupModes(ms []mode.Mode) []menuGroup {
 
 type menu struct {
 	groups        []menuGroup
-	best          map[string]float64 // mode key -> best WPM
+	best          map[string]float64
+	suffix        string
 	col, row      int
 	width, height int
 }
 
-func newMenu(store *storage.Store, w, h int) menu {
+func newMenu(store *storage.Store, suffix string, w, h int) menu {
 	best := map[string]float64{}
 	if store != nil {
 		if sc, err := store.Load(); err == nil {
@@ -47,7 +47,7 @@ func newMenu(store *storage.Store, w, h int) menu {
 			}
 		}
 	}
-	return menu{groups: groupModes(mode.All()), best: best, width: w, height: h}
+	return menu{groups: groupModes(mode.All()), best: best, suffix: suffix, width: w, height: h}
 }
 
 func (m menu) Init() tea.Cmd { return nil }
@@ -81,6 +81,8 @@ func (m menu) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, send(startTestMsg{md: m.groups[m.col].modes[m.row]})
 		case "s":
 			return m, send(showStatsMsg{})
+		case "o":
+			return m, send(showSettingsMsg{})
 		case "q", "esc":
 			return m, tea.Quit
 		}
@@ -88,25 +90,23 @@ func (m menu) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// colWidth is the text width inside one column, scaled to the terminal.
 func (m menu) colWidth() int {
 	return clamp((m.width-12)/len(m.groups)-6, 18, 28)
 }
 
-// menuLine draws one mode: label on the left, best score on the right.
-func menuLine(label, best string, w int, selected bool) string {
+func menuLine(label, value string, w int, selected bool) string {
 	left := "  " + label
 	if selected {
 		left = "▸ " + label
 	}
-	gap := w - lipgloss.Width(left) - lipgloss.Width(best)
+	gap := w - lipgloss.Width(left) - lipgloss.Width(value)
 	if gap < 1 {
 		gap = 1
 	}
 	if selected {
-		return selectedRowStyle.Render(left + strings.Repeat(" ", gap) + best)
+		return selectedRowStyle.Render(left + strings.Repeat(" ", gap) + value)
 	}
-	return textStyle.Render(left) + strings.Repeat(" ", gap) + dimStyle.Render(best)
+	return textStyle.Render(left) + strings.Repeat(" ", gap) + dimStyle.Render(value)
 }
 
 func (m menu) column(gi, cw, height int) string {
@@ -117,7 +117,7 @@ func (m menu) column(gi, cw, height int) string {
 	b.WriteString(groupStyle.Render(g.name) + "\n\n")
 	for ri, md := range g.modes {
 		best := ""
-		if wpm, ok := m.best[md.Key()]; ok {
+		if wpm, ok := m.best[md.Key()+m.suffix]; ok {
 			best = fmt.Sprintf("%.0f", wpm)
 			if cw >= 24 {
 				best += " wpm"
@@ -146,7 +146,7 @@ func (m menu) View() string {
 			maxRows = len(g.modes)
 		}
 	}
-	height := maxRows + 4 // header + blank line + rows, plus 2 for vertical padding
+	height := maxRows + 4
 
 	cols := make([]string, 0, len(m.groups)*2)
 	for i := range m.groups {
@@ -163,11 +163,11 @@ func (m menu) View() string {
 	}
 	logo := renderBig("keyzen", scale, currentTheme.Accent, currentTheme.Accent2)
 	if m.height < 24 {
-		logo = titleStyle.Render("k e y z e n") // not enough room for the big one
+		logo = titleStyle.Render("k e y z e n")
 	}
 
 	tagline := dimStyle.Render("type faster, right in your terminal")
-	foot := hints("←↑↓→", "select", "enter", "start", "s", "stats", "t", "theme: "+currentTheme.Name, "q", "quit")
+	foot := hints("←↑↓→", "select", "enter", "start", "s", "stats", "o", "options", "t", "theme", "q", "quit")
 
 	return screen(m.width, m.height, logo, tagline, columns, foot)
 }
