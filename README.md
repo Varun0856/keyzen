@@ -29,7 +29,7 @@ can build practice tests aimed at the keys you struggle with.
 - **Results screen:** big WPM, accuracy, a speed-over-time sparkline, the keys you actually
   got wrong, and your best score for that mode.
 - **Stats screen:** a keyboard heatmap of your lifetime accuracy or speed per key.
-- **Six themes:** midnight, nord, gruvbox, dracula, catppuccin. Press `t` to
+- **Five themes:** midnight, nord, gruvbox, dracula, catppuccin. Press `t` to
   cycle; your choice is remembered.
 - **Responsive layout:** adapts to your terminal size, from 80x24 up to very wide windows.
 - **Single binary, no telemetry:** nothing leaves your machine. Scores and settings are small
@@ -37,16 +37,71 @@ can build practice tests aimed at the keys you struggle with.
 
 ## Install
 
-With Go:
+### Prebuilt binary (no Go needed)
+
+Download the archive for your system from the
+[latest release](https://github.com/Varun0856/keyzen/releases/latest):
+
+| System                         | File                                   |
+| ------------------------------ | -------------------------------------- |
+| Linux, Intel/AMD               | `keyzen_<version>_linux_amd64.tar.gz`  |
+| Linux, ARM (e.g. Raspberry Pi) | `keyzen_<version>_linux_arm64.tar.gz`  |
+| macOS, Apple Silicon (M1+)     | `keyzen_<version>_darwin_arm64.tar.gz` |
+| macOS, Intel                   | `keyzen_<version>_darwin_amd64.tar.gz` |
+| Windows                        | `keyzen_<version>_windows_amd64.zip`   |
+
+Not sure which one you need? Run `uname -m`: `x86_64` means amd64, and `arm64` or `aarch64`
+means arm64.
+
+**Linux and macOS**
+
+```bash
+tar -xzf keyzen_*_linux_amd64.tar.gz keyzen     # use the file you downloaded
+sudo mv keyzen /usr/local/bin/
+keyzen --version
+```
+
+No `sudo`? Put it in `~/.local/bin` instead (make sure that folder is on your `PATH`):
+
+```bash
+mkdir -p ~/.local/bin && mv keyzen ~/.local/bin/
+```
+
+On macOS, a binary downloaded through a browser can be blocked as coming from an unidentified
+developer. Clear the quarantine flag once:
+
+```bash
+xattr -d com.apple.quarantine keyzen
+```
+
+**Windows**
+
+Download the `.zip`, extract it, and run `keyzen.exe` from
+[Windows Terminal](https://aka.ms/terminal). If SmartScreen warns about an unrecognised app,
+choose "More info" then "Run anyway". To run it from anywhere, put the folder on your `PATH`.
+
+**Verify the download (optional)**
+
+Download `checksums.txt` from the same release and run:
+
+```bash
+sha256sum -c checksums.txt --ignore-missing
+```
+
+### With Go
 
 ```bash
 go install github.com/Varun0856/keyzen/cmd/keyzen@latest
 ```
 
-Or download a prebuilt binary for Linux, macOS or Windows from the
-[Releases](https://github.com/Varun0856/keyzen/releases) page.
+Needs Go (the version in `go.mod` or newer). The binary lands in `$(go env GOPATH)/bin`, usually
+`~/go/bin`. If `keyzen` isn't found afterwards, add that folder to your `PATH`:
 
-Or build from source:
+```bash
+export PATH="$PATH:$(go env GOPATH)/bin"
+```
+
+### From source
 
 ```bash
 git clone https://github.com/Varun0856/keyzen
