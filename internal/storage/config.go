@@ -9,7 +9,9 @@ import (
 )
 
 type Config struct {
-	Theme string `json:"theme"`
+	Theme       string `json:"theme"`
+	Punctuation bool   `json:"punctuation"`
+	Numbers     bool   `json:"numbers"`
 }
 
 type ConfigStore struct{ path string }
@@ -29,7 +31,6 @@ func (s *ConfigStore) Load() (Config, error) {
 	if errors.Is(err, os.ErrNotExist) {
 		return Config{}, nil
 	}
-
 	if err != nil {
 		return Config{}, err
 	}
@@ -42,7 +43,7 @@ func (s *ConfigStore) Load() (Config, error) {
 }
 
 func (s *ConfigStore) Save(c Config) error {
-	data, err := json.MarshalIndent(c, "", " ")
+	data, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
 		return err
 	}
