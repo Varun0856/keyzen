@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime/debug"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -12,17 +13,34 @@ import (
 	"github.com/Varun0856/keyzen/internal/ui"
 )
 
+var version = "dev"
+
+func buildVersion() string {
+	if version != "dev" {
+		return version
+	}
+	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		return info.Main.Version
+	}
+	return version
+}
+
 func main() {
 	theme := flag.String("theme", "",
 		"color theme: "+strings.Join(ui.ThemeNames(), ", ")+" (default: your last choice)")
+	showVersion := flag.Bool("version", false, "print the version and exit")
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Println("keyzen", buildVersion())
+		return
+	}
 
 	var cfg *storage.ConfigStore
 	if path, err := storage.DefaultConfigPath(); err == nil {
 		cfg = storage.NewConfigStore(path)
 	}
 
-	// An explicit -theme wins; otherwise use the one saved by the t key.
 	if *theme != "" {
 		if !ui.SetTheme(*theme) {
 			fmt.Fprintf(os.Stderr, "keyzen: unknown theme %q\n", *theme)
